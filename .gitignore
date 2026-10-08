@@ -17,3 +17,6 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+# Local documents folder
+docs/
