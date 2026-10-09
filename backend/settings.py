@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1024
     llm_max_retries: int = 2
     llm_timeout_seconds: float = 30.0
+    # The one website address allowed to call this API from a browser.
+    cors_allowed_origin: str = "http://localhost:3000"
 
 
 settings = Settings()

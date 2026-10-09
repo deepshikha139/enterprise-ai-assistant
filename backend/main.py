@@ -3,6 +3,7 @@ import logging
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -14,10 +15,18 @@ from providers.base import (
     StreamDelta,
     StreamDone,
 )
+from settings import settings
 
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.cors_allowed_origin],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
 
 # Created once when the server starts, then reused by every request.
 provider: LLMProvider = AnthropicProvider()
