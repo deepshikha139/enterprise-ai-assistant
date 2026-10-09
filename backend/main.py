@@ -1,10 +1,19 @@
+import json
 import logging
+from collections.abc import AsyncIterator
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from providers.anthropic_provider import AnthropicProvider
-from providers.base import LLMProvider, ProviderBusyError, ProviderError
+from providers.base import (
+    LLMProvider,
+    ProviderBusyError,
+    ProviderError,
+    StreamDelta,
+    StreamDone,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -46,3 +55,41 @@ async def chat(request: ChatRequest) -> ChatResponse:
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
     )
+
+
+def sse(event: str, data: dict) -> str:
+    # One Server-Sent Event: an event name, a JSON data line, then a blank line.
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest) -> StreamingResponse:
+    pieces = provider.stream(request.message)
+
+    # Wait for the first piece before replying, so a failure at the very start
+    # can still become a real 503/500. After this, the status is already sent.
+    try:
+        first = await anext(pieces)
+    except ProviderBusyError:
+        raise HTTPException(status_code=503, detail="Assistant is busy, please try again.")
+    except ProviderError:
+        raise HTTPException(status_code=500, detail="Something went wrong.")
+
+    async def events() -> AsyncIterator[str]:
+        try:
+            item = first
+            while True:
+                if isinstance(item, StreamDelta):
+                    yield sse("delta", {"text": item.text})
+                elif isinstance(item, StreamDone):
+                    yield sse("done", item.model_dump())
+                item = await anext(pieces)
+        except StopAsyncIteration:
+            pass
+        # Too late for an error status, so tell the client inside the stream.
+        except ProviderBusyError:
+            yield sse("error", {"message": "Assistant is busy, please try again."})
+        except ProviderError:
+            yield sse("error", {"message": "Something went wrong."})
+
+    return StreamingResponse(events(), media_type="text/event-stream")

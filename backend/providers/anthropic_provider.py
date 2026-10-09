@@ -1,9 +1,17 @@
 import logging
+from collections.abc import AsyncIterator
 
 import anthropic
 from anthropic import AsyncAnthropic
 
-from providers.base import LLMProvider, LLMResult, ProviderBusyError, ProviderError
+from providers.base import (
+    LLMProvider,
+    LLMResult,
+    ProviderBusyError,
+    ProviderError,
+    StreamDelta,
+    StreamDone,
+)
 from settings import settings
 
 logger = logging.getLogger(__name__)
@@ -59,4 +67,32 @@ class AnthropicProvider(LLMProvider):
             model=response.model,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+        )
+
+    async def stream(self, message: str) -> AsyncIterator[StreamDelta | StreamDone]:
+        try:
+            async with self.client.messages.stream(
+                model=settings.llm_model,
+                max_tokens=settings.llm_max_tokens,
+                messages=[{"role": "user", "content": message}],
+            ) as stream:
+                async for text in stream.text_stream:
+                    yield StreamDelta(text=text)
+                final = await stream.get_final_message()
+        except (
+            anthropic.RateLimitError,
+            anthropic.OverloadedError,
+            anthropic.APITimeoutError,
+            anthropic.APIConnectionError,
+        ) as error:
+            log_api_error(error)
+            raise ProviderBusyError() from error
+        except anthropic.APIError as error:
+            log_api_error(error)
+            raise ProviderError() from error
+
+        yield StreamDone(
+            model=final.model,
+            input_tokens=final.usage.input_tokens,
+            output_tokens=final.usage.output_tokens,
         )

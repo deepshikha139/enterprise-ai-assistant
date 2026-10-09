@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 
 from pydantic import BaseModel
 
@@ -7,6 +8,20 @@ class LLMResult(BaseModel):
     """One answer from a model, in the same shape whichever provider produced it."""
 
     text: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+
+
+class StreamDelta(BaseModel):
+    """One piece of an answer that is still being written."""
+
+    text: str
+
+
+class StreamDone(BaseModel):
+    """Sent once, last, when a streamed answer has finished normally."""
+
     model: str
     input_tokens: int
     output_tokens: int
@@ -26,3 +41,11 @@ class LLMProvider(ABC):
     @abstractmethod
     async def generate(self, message: str) -> LLMResult:
         """Send one user message and return the model's answer."""
+
+    @abstractmethod
+    def stream(self, message: str) -> AsyncIterator[StreamDelta | StreamDone]:
+        """Send one user message and yield the answer piece by piece.
+
+        Yields StreamDelta items, then one StreamDone. Raises ProviderError
+        (or ProviderBusyError) if it fails, possibly after some pieces were yielded.
+        """
