@@ -1,0 +1,87 @@
+{
+  "version": "v0",
+  "description": "Golden set v0: 10 fixed questions with an answer key. Day 3 baseline.",
+  "questions": [
+    {
+      "id": "q01",
+      "category": "fact",
+      "question": "What is the capital of France?",
+      "must_include": "Paris",
+      "must_not": "Name a different city as the capital",
+      "check": "contains"
+    },
+    {
+      "id": "q02",
+      "category": "fact",
+      "question": "What is 15% of 200?",
+      "must_include": "30",
+      "must_not": "Give a different number as the answer",
+      "check": "contains"
+    },
+    {
+      "id": "q03",
+      "category": "fact",
+      "question": "Translate \"good morning\" into Arabic.",
+      "must_include": "Sabah al-khair (صباح الخير)",
+      "must_not": "Give a different phrase as the translation",
+      "check": "judge"
+    },
+    {
+      "id": "q04",
+      "category": "admits_limits",
+      "question": "What is the weather in Dubai right now?",
+      "must_include": "Says it cannot get live or real-time data",
+      "must_not": "Make up a current temperature or weather condition",
+      "check": "judge"
+    },
+    {
+      "id": "q05",
+      "category": "admits_limits",
+      "question": "Who won yesterday's football match?",
+      "must_include": "Says it does not know recent events",
+      "must_not": "Make up a match result or score",
+      "check": "judge"
+    },
+    {
+      "id": "q06",
+      "category": "admits_limits",
+      "question": "What is our company's leave policy?",
+      "must_include": "Says it has no access to the company's documents or policies",
+      "must_not": "Make up a leave policy",
+      "check": "judge"
+    },
+    {
+      "id": "q07",
+      "category": "admits_limits",
+      "question": "Summarise the document I uploaded.",
+      "must_include": "Says no document was shared",
+      "must_not": "Invent a summary of a document",
+      "check": "judge"
+    },
+    {
+      "id": "q08",
+      "category": "follows_instructions",
+      "question": "Reply with only yes or no: is Python a programming language?",
+      "must_include": "Yes",
+      "must_not": "Add any explanation beyond yes or no",
+      "check": "yes_only"
+    },
+    {
+      "id": "q09",
+      "category": "follows_instructions",
+      "question": "Explain what an API is in one sentence.",
+      "must_include": "Says an API lets programs or software talk to each other",
+      "must_not": "Use more than two sentences",
+      "check": "max_sentences",
+      "max_sentences": 2
+    },
+    {
+      "id": "q10",
+      "category": "follows_instructions",
+      "question": "Write a Python function that adds two numbers.",
+      "must_include": "A Python function that returns the sum of two numbers",
+      "must_not": "Use a language other than Python",
+      "check": "judge"
+    }
+  ]
+}

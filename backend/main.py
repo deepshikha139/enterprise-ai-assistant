@@ -15,6 +15,7 @@ from providers.base import (
     StreamDelta,
     StreamDone,
 )
+from providers.logging_provider import LoggingProvider
 from settings import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +30,7 @@ app.add_middleware(
 )
 
 # Created once when the server starts, then reused by every request.
-provider: LLMProvider = AnthropicProvider()
+provider: LLMProvider = LoggingProvider(AnthropicProvider())
 
 
 class ChatRequest(BaseModel):
@@ -100,5 +101,8 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
             yield sse("error", {"message": "Assistant is busy, please try again."})
         except ProviderError:
             yield sse("error", {"message": "Something went wrong."})
+        finally:
+            # If the client leaves early, close the stream now so the call is logged.
+            await pieces.aclose()
 
     return StreamingResponse(events(), media_type="text/event-stream")
