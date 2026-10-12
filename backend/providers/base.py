@@ -43,6 +43,17 @@ class LLMProvider(ABC):
         """Send one user message and return the model's answer."""
 
     @abstractmethod
+    async def generate_structured(
+        self, message: str, output_type: type[BaseModel]
+    ) -> LLMResult:
+        """Like generate, but the model is asked to reply as JSON matching output_type.
+
+        The reply comes back as raw text in LLMResult.text. It is NOT validated here:
+        the caller checks it, because the model can still break rules the schema can't
+        express (for example a number range).
+        """
+
+    @abstractmethod
     def stream(self, message: str) -> AsyncIterator[StreamDelta | StreamDone]:
         """Send one user message and yield the answer piece by piece.
 

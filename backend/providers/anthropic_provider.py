@@ -2,7 +2,8 @@ import logging
 from collections.abc import AsyncIterator
 
 import anthropic
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, transform_schema
+from pydantic import BaseModel
 
 from providers.base import (
     LLMProvider,
@@ -60,6 +61,43 @@ class AnthropicProvider(LLMProvider):
             raise ProviderError() from error
 
         # A response can hold several content blocks; keep only the text ones.
+        text = "".join(block.text for block in response.content if block.type == "text")
+
+        return LLMResult(
+            text=text,
+            model=response.model,
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+        )
+
+    async def generate_structured(
+        self, message: str, output_type: type[BaseModel]
+    ) -> LLMResult:
+        try:
+            response = await self.client.messages.create(
+                model=settings.llm_model,
+                max_tokens=settings.llm_max_tokens,
+                messages=[{"role": "user", "content": message}],
+                # transform_schema turns the Pydantic class into a schema the API accepts.
+                output_config={
+                    "format": {
+                        "type": "json_schema",
+                        "schema": transform_schema(output_type),
+                    }
+                },
+            )
+        except (
+            anthropic.RateLimitError,
+            anthropic.OverloadedError,
+            anthropic.APITimeoutError,
+            anthropic.APIConnectionError,
+        ) as error:
+            log_api_error(error)
+            raise ProviderBusyError() from error
+        except anthropic.APIError as error:
+            log_api_error(error)
+            raise ProviderError() from error
+
         text = "".join(block.text for block in response.content if block.type == "text")
 
         return LLMResult(

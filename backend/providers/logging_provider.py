@@ -3,6 +3,8 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import aclosing
 
+from pydantic import BaseModel
+
 from providers.base import (
     LLMProvider,
     LLMResult,
@@ -66,6 +68,31 @@ class LoggingProvider(LLMProvider):
 
         log_call(
             "generate",
+            "ok",
+            result.model,
+            result.input_tokens,
+            result.output_tokens,
+            time.perf_counter() - start,
+            None,
+        )
+        return result
+
+    async def generate_structured(
+        self, message: str, output_type: type[BaseModel]
+    ) -> LLMResult:
+        start = time.perf_counter()
+        model = settings.llm_model
+        try:
+            result = await self.inner.generate_structured(message, output_type)
+        except ProviderBusyError:
+            log_call("structured", "error:busy", model, None, None, time.perf_counter() - start, None)
+            raise
+        except ProviderError:
+            log_call("structured", "error:provider", model, None, None, time.perf_counter() - start, None)
+            raise
+
+        log_call(
+            "structured",
             "ok",
             result.model,
             result.input_tokens,

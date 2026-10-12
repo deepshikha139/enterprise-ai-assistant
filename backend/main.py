@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from classifier import Classification, classify
 from providers.anthropic_provider import AnthropicProvider
 from providers.base import (
     LLMProvider,
@@ -65,6 +66,16 @@ async def chat(request: ChatRequest) -> ChatResponse:
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
     )
+
+
+@app.post("/classify")
+async def classify_question(request: ChatRequest) -> Classification:
+    try:
+        return await classify(provider, request.message)
+    except ProviderBusyError:
+        raise HTTPException(status_code=503, detail="Assistant is busy, please try again.")
+    except ProviderError:
+        raise HTTPException(status_code=500, detail="Something went wrong.")
 
 
 def sse(event: str, data: dict) -> str:

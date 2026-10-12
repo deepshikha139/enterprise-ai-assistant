@@ -10,3 +10,14 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "uvicorn>=0.54.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+# Lets tests import classifier.py and providers/ from backend/, and run async tests.
+pythonpath = ["."]
+asyncio_mode = "auto"
