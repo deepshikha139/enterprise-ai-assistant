@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from assistant import chat_with_tools
 from classifier import Classification, classify
 from providers.anthropic_provider import AnthropicProvider
 from providers.base import (
@@ -54,14 +55,14 @@ def health():
 async def chat(request: ChatRequest) -> ChatResponse:
     # Busy must be checked first, because it is also a kind of ProviderError.
     try:
-        result = await provider.generate(request.message)
+        result = await chat_with_tools(provider, request.message)
     except ProviderBusyError:
         raise HTTPException(status_code=503, detail="Assistant is busy, please try again.")
     except ProviderError:
         raise HTTPException(status_code=500, detail="Something went wrong.")
 
     return ChatResponse(
-        answer=result.text,
+        answer=result.answer,
         model=result.model,
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,

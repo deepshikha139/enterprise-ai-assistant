@@ -8,10 +8,13 @@ from pydantic import BaseModel
 from providers.base import (
     LLMProvider,
     LLMResult,
+    Message,
     ProviderBusyError,
     ProviderError,
     StreamDelta,
     StreamDone,
+    ToolSpec,
+    ToolTurn,
 )
 from providers.pricing import estimate_cost_usd
 from settings import settings
@@ -27,15 +30,21 @@ def log_call(
     output_tokens: int | None,
     total_seconds: float,
     first_piece_seconds: float | None,
+    tools_requested: list[str] | None = None,
 ) -> None:
     # One line per call. Never the API key, the message, or the answer text.
     cost = None
     if input_tokens is not None and output_tokens is not None:
         cost = estimate_cost_usd(model, input_tokens, output_tokens)
 
+    # Only tool calls have this field: the names of the tools the model asked for.
+    # Passed as a log argument, not pasted into the format, since the model chose the names.
+    tools_format = "" if tools_requested is None else " tools_requested=%s"
+    tools_args = () if tools_requested is None else (",".join(tools_requested) or "-",)
+
     logger.info(
         "kind=%s status=%s model=%s input_tokens=%s output_tokens=%s "
-        "total_ms=%d first_piece_ms=%s cost_usd=%s",
+        "total_ms=%d first_piece_ms=%s cost_usd=%s" + tools_format,
         kind,
         status,
         model,
@@ -44,6 +53,7 @@ def log_call(
         total_seconds * 1000,
         "-" if first_piece_seconds is None else round(first_piece_seconds * 1000),
         "n/a" if cost is None else f"{cost:.6f}",
+        *tools_args,
     )
 
 
@@ -101,6 +111,33 @@ class LoggingProvider(LLMProvider):
             None,
         )
         return result
+
+    async def generate_with_tools(
+        self, messages: list[Message], tools: list[ToolSpec], system: str | None = None
+    ) -> ToolTurn:
+        start = time.perf_counter()
+        model = settings.llm_model
+        try:
+            turn = await self.inner.generate_with_tools(messages, tools, system)
+        except ProviderBusyError:
+            log_call("tools", "error:busy", model, None, None, time.perf_counter() - start, None)
+            raise
+        except ProviderError:
+            log_call("tools", "error:provider", model, None, None, time.perf_counter() - start, None)
+            raise
+
+        log_call(
+            "tools",
+            "ok",
+            turn.model,
+            turn.input_tokens,
+            turn.output_tokens,
+            time.perf_counter() - start,
+            None,
+            # Names only, never the tool inputs.
+            tools_requested=[call.name for call in turn.tool_calls],
+        )
+        return turn
 
     async def stream(self, message: str) -> AsyncIterator[StreamDelta | StreamDone]:
         start = time.perf_counter()
